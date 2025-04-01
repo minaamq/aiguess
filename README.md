@@ -17,6 +17,7 @@ An AI-powered word guess game where players guess words based on AI-generated hi
 
 
 ## Demo Video
-[![Watch the Video](https://via.placeholder.com/600x300?text=Click+to+Watch)](https://github.com/minaamq/aiguess/blob/main/media/Video1.MOV)
+[![Watch the Video](https://placehold.co/600x300?text=Video+Thumbnail)](https://github.com/minaamq/aiguess/blob/main/media/Video1.MOV)
+
 
 
