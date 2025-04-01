@@ -99,7 +99,7 @@ export default function GamePage() {
           // Display only the first clue immediately
           setClues([generatedClues[0]]);
 
-          console.log(`New round started with word: ${word}`);
+
         } catch (error) {
           console.error("Error starting new round:", error);
           toast({

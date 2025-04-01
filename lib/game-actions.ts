@@ -21,7 +21,7 @@ export async function generateWordAndClues(
 
     // Use the global usedWords array
     const prompt = createGeminiPrompt(difficulty, usedWords);
-    console.log(prompt)
+   
     const settings: GeminiSettings = {
       temperature: 0.7,
       topK: 40,
@@ -116,7 +116,6 @@ function createGeminiPrompt(difficulty: string, usedWords: string[] = []): strin
   const avoidInstruction = usedWords.length
     ? ` Do not choose any of the following words: ${usedWords.join(", ")}.`
     : "";
-console.log(usedWords, avoidInstruction)
   return `
 Generate a word guessing game challenge with the following requirements:
 
