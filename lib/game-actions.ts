@@ -1,5 +1,8 @@
 "use server"
 import { GeminiSettings } from "@/lib/gemini-types";
+import dotenv from 'dotenv'; 
+
+dotenv.config();
 
 // Function to generate a word and clues using Gemini API.
 // Accepts an optional array of usedWords so that the same word is not repeated.
@@ -11,7 +14,7 @@ export async function generateWordAndClues(
   attempt: number = 1
 ): Promise<{ word: string; clues: string[] }> {
   try {
-    const apiKey = "AIzaSyCS61O7cocOIPcitvRp7pubKEw1VHwzrG0";
+    const apiKey = process.env.API_KEY;
     if (!apiKey) {
       throw new Error("Gemini API key is not configured");
     }
