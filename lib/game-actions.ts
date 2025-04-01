@@ -1,28 +1,27 @@
-"use server";
-
+"use server"
 import { GeminiSettings } from "@/lib/gemini-types";
 
 // Function to generate a word and clues using Gemini API.
 // Accepts an optional array of usedWords so that the same word is not repeated.
+// At the top of your module
+let usedWords: string[] = [];
+
 export async function generateWordAndClues(
   difficulty: string,
-  usedWords: string[] = [],
   attempt: number = 1
 ): Promise<{ word: string; clues: string[] }> {
   try {
-    // Define the API key and endpoint
     const apiKey = "AIzaSyCS61O7cocOIPcitvRp7pubKEw1VHwzrG0";
     if (!apiKey) {
       throw new Error("Gemini API key is not configured");
     }
 
     const endpoint =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
-    // Create the prompt based on difficulty level and already used words
+    // Use the global usedWords array
     const prompt = createGeminiPrompt(difficulty, usedWords);
-
-    // Request settings
+    console.log(prompt)
     const settings: GeminiSettings = {
       temperature: 0.7,
       topK: 40,
@@ -30,10 +29,9 @@ export async function generateWordAndClues(
       maxOutputTokens: 1024,
     };
 
-    // Make the API request
     const response = await fetch(`${endpoint}?key=${apiKey}`, {
       method: "POST",
-      cache: "no-store", // Prevent caching so a new word is fetched each time
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -43,11 +41,7 @@ export async function generateWordAndClues(
       body: JSON.stringify({
         contents: [
           {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
+            parts: [{ text: prompt }],
           },
         ],
         generationConfig: settings,
@@ -59,45 +53,46 @@ export async function generateWordAndClues(
       console.error("Gemini API error:", errorData);
       throw new Error(`Gemini API error: ${response.status}`);
     }
-
     const data = await response.json();
 
-    // Parse the response to extract word and clues
     const { word, clues } = parseGeminiResponse(data);
 
-    // Check if the generated word has already been used.
+    // Check for duplicates (case-insensitive)
     if (usedWords.map(w => w.toLowerCase()).includes(word.toLowerCase())) {
       console.warn(`Generated word "${word}" is already used. Attempt ${attempt}`);
       if (attempt < 3) {
-        // Try again, adding one more attempt
-        return generateWordAndClues(difficulty, usedWords, attempt + 1);
+        return generateWordAndClues(difficulty, attempt + 1);
       } else {
         console.warn("Max attempts reached; using fallback word.");
         return {
           word: getDefaultWord(difficulty),
           clues: [
-            `This word has multiple letters`,
-            `This word starts with a letter from the English alphabet`,
-            `This is a commonly used word in everyday language`,
+            "This word has multiple letters",
+            "This word starts with a letter from the English alphabet",
+            "This is a commonly used word in everyday language",
           ],
         };
       }
     }
 
+    // Add the new word to the global array so it persists
+    usedWords.push(word);
+
     return { word, clues };
   } catch (error) {
     console.error("Error generating word and clues:", error);
-    // Fallback in case of error
     return {
       word: getDefaultWord(difficulty),
       clues: [
-        `This word has multiple letters`,
-        `This word starts with a letter from the English alphabet`,
-        `This is a commonly used word in everyday language`,
+        "This word has multiple letters",
+        "This word starts with a letter from the English alphabet",
+        "This is a commonly used word in everyday language",
       ],
     };
   }
 }
+
+
 
 // Create a prompt for Gemini based on difficulty level and list of used words.
 function createGeminiPrompt(difficulty: string, usedWords: string[] = []): string {
@@ -107,7 +102,7 @@ function createGeminiPrompt(difficulty: string, usedWords: string[] = []): strin
     medium: "5-7",
     hard: "8-10",
     expert: "11+",
-  }[difficulty] || "5-7";
+  }[difficulty] 
 
   // Define vocabulary level by difficulty
   const vocabularyLevel = {
@@ -115,17 +110,17 @@ function createGeminiPrompt(difficulty: string, usedWords: string[] = []): strin
     medium: "common words used in everyday conversation",
     hard: "more complex words that might require some thought",
     expert: "advanced vocabulary, possibly technical or academic terms",
-  }[difficulty] || "common words used in everyday conversation";
+  }[difficulty] ;
 
   // If there are already used words, add an instruction to avoid them.
   const avoidInstruction = usedWords.length
     ? ` Do not choose any of the following words: ${usedWords.join(", ")}.`
     : "";
-
+console.log(usedWords, avoidInstruction)
   return `
 Generate a word guessing game challenge with the following requirements:
 
-1. Select a single word that is approximately ${wordLength} letters long and falls into the category of ${vocabularyLevel}.${avoidInstruction}
+1. Select a single word that is approximately ${wordLength} alphabets long and falls into the category of ${vocabularyLevel}. ${avoidInstruction}
 2. Create 3 unique, increasingly helpful clues about this word.
 3. The first clue should be subtle and give only a hint.
 4. The second clue should provide more specific information.
@@ -161,7 +156,6 @@ function parseGeminiResponse(responseData: any): { word: string; clues: string[]
     if (!jsonMatch) {
       throw new Error("No JSON object found in response");
     }
-    console.log("Gemini response text:", text);
     const jsonData = JSON.parse(jsonMatch[0]);
 
     // Validate the response format

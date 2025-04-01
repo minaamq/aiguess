@@ -89,7 +89,7 @@ export default function GamePage() {
           // Add a timestamp to prevent caching
           const timestamp = new Date().getTime();
           const { word, clues: generatedClues } = await generateWordAndClues(
-            difficulty + `&t=${timestamp}`
+            difficulty 
           );
 
           // Store the word and all clues
