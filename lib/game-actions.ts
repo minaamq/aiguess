@@ -152,7 +152,7 @@ function parseGeminiResponse(responseData: any): { word: string; clues: string[]
     }
 
     const text = content.parts?.[0]?.text || "";
-
+    console.log(text)
     // Find the JSON object within the text (in case there's any extra content)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
