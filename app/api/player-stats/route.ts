@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { playeruserid, stats } = await request.json()
-    console.log("playerKey", stats, "playeruserid",playeruserid)
     if (!playeruserid || !stats) {
       return NextResponse.json({ error: "Invalid player stats data" }, { status: 400 })
     }

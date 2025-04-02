@@ -14,6 +14,8 @@ const usedWords: string[] = []
 
 export async function generateWordAndClues(
   dynamicDifficulty: string,
+  // Add parameter to receive used words from the client
+  sessionUsedWords: string[] = [],
   attempt = 1,
 ): Promise<{ word: string; clues: string[]; riddle: string }> {
   try {
@@ -24,9 +26,9 @@ export async function generateWordAndClues(
 
     const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-    // Use the global usedWords array
-    const prompt = createGeminiPrompt(dynamicDifficulty, usedWords)
-    
+    // Use the sessionUsedWords passed from the client
+    const prompt = createGeminiPrompt(dynamicDifficulty, sessionUsedWords) // Pass sessionUsedWords here
+
     const settings: GeminiSettings = {
       temperature: 0.7,
       topK: 40,
@@ -36,9 +38,10 @@ export async function generateWordAndClues(
 
     const response = await fetch(`${endpoint}?key=${apiKey}`, {
       method: "POST",
-      cache: "no-store",
+      cache: "no-store", // Keep no-store for fresh generation
       headers: {
         "Content-Type": "application/json",
+        // Keep cache-control headers if needed for specific infra, but no-store above is key
         "Cache-Control": "no-cache, no-store, must-revalidate",
         Pragma: "no-cache",
         Expires: "0",
@@ -52,6 +55,7 @@ export async function generateWordAndClues(
         generationConfig: settings,
       }),
     })
+
     if (!response.ok) {
       const errorData = await response.json()
       console.error("Gemini API error:", errorData)
@@ -59,47 +63,40 @@ export async function generateWordAndClues(
     }
 
     const data = await response.json()
-
     const { word, clues, riddle } = parseGeminiResponse(data)
 
-
-    // Check for duplicates (case-insensitive)
-    if (usedWords.map((w) => w.toLowerCase()).includes(word.toLowerCase())) {
-      console.warn(`Generated word "${word}" is already used. Attempt ${attempt}`)
+    // Check for duplicates against the session's used words (case-insensitive)
+    if (sessionUsedWords.map((w) => w.toLowerCase()).includes(word.toLowerCase())) {
+      console.warn(`Generated word "${word}" is already used in this session. Attempt ${attempt}`)
       if (attempt < 3) {
-        return generateWordAndClues(dynamicDifficulty, attempt + 1)
+        // Pass the sessionUsedWords along in the recursive call
+        return generateWordAndClues(dynamicDifficulty, sessionUsedWords, attempt + 1)
       } else {
         console.warn("Max attempts reached; using fallback word.")
+        // NOTE: The fallback word might *also* be in sessionUsedWords.
+        // A more robust solution might involve having a larger pool of fallbacks
+        // or specifically filtering fallbacks against sessionUsedWords if possible.
         return {
           word: getDefaultWord(dynamicDifficulty),
-          clues: [
-            "This word has multiple letters",
-            "This word starts with a letter from the English alphabet",
-            "This is a commonly used word in everyday language",
-          ],
+          clues: [ /* default clues */ ],
           riddle: "I am a mystery waiting to be solved, what am I?"
         }
       }
     }
 
-    // Add the new word to the global array so it persists
-    usedWords.push(word)
+    // DO NOT add the word here. The client will manage the list for the session.
+    // usedWords.push(word); // REMOVE THIS LINE
 
     return { word, clues, riddle }
   } catch (error) {
     console.error("Error generating word and clues:", error)
     return {
       word: getDefaultWord(dynamicDifficulty),
-      clues: [
-        "This word has multiple letters",
-        "This word starts with a letter from the English alphabet",
-        "This is a commonly used word in everyday language",
-      ],
+      clues: [ /* default clues */ ],
       riddle: "I am a mystery waiting to be solved, what am I?"
     }
   }
 }
-
 // Create a prompt for Gemini based on difficulty level and list of used words.
 function createGeminiPrompt(dynamicDifficulty: string, usedWords: string[] = []): string {
   // Define word length by difficulty
@@ -121,7 +118,7 @@ Generate a word guessing game challenge with the following requirements:
 
 1. **Word Selection**: 
    - Choose a single word from one or more of the following categories: General Vocabulary, Nature & Animals, Verbs & Actions, Adjectives & Descriptions, Food & Drink, Objects & Things, Places & Geography, Colors & Numbers, or Emotions & Feelings.
-   - The selected word should match the difficulty level: ${vocabularyLevel}. Avoid ${avoidInstruction}
+   - The selected word should match the difficulty level: ${vocabularyLevel}. Avoid word sun and also ${avoidInstruction}
 
 2. **Riddle Creation**:
    - Craft an engaging riddle that subtly hints at the chosen word without revealing it directly.

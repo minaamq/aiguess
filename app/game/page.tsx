@@ -38,534 +38,542 @@ export default function GamePage() {
   const [gameState, setGameState] = useState<"playing" | "won" | "lost">("playing")
   const [currentWord, setCurrentWord] = useState("")
   const [guess, setGuess] = useState("")
-  const [clues, setClues] = useState<string[]>([])
+  const [clues, setClues] = useState<string[]>([]) // Clues currently shown
+  const [allClues, setAllClues] = useState<string[]>([]) // All clues for the word
+  const [riddle, setRiddle] = useState("")
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(60)
-  const [attempts, setAttempts] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+  const [attempts, setAttempts] = useState(0) // Attempts in the current round
+  const [wrongAttempts, setWrongAttempts] = useState(0) // Incorrect attempts in the current round
+  const [isLoading, setIsLoading] = useState(true) // Start loading initially
+  const [isGeneratingNewWord, setIsGeneratingNewWord] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [playerName, setPlayerName] = useState("")
   const [playeruserid, setPlayeruserid] = useState("")
-  const [difficulty, setDifficulty] = useState("easy")
-  const [wrongGuess, setWrongGuess] = useState("")
+  const [difficulty, setDifficulty] = useState("easy") // Base difficulty (might be overridden)
+  const [wrongGuess, setWrongGuess] = useState("") // Store the last wrong guess
   const [showWrongGuess, setShowWrongGuess] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null);
-  const [allClues, setAllClues] = useState<string[]>([])
   const [consecutiveCorrect, setConsecutiveCorrect] = useState(0)
-  const [wrongAttempts, setWrongAttempts] = useState(0)
   const [showRankUp, setShowRankUp] = useState(false)
   const [showTierUp, setShowTierUp] = useState(false)
   const [beatenPlayer, setBeatenPlayer] = useState<{ name: string; score: number } | null>(null)
   const [percentileRank, setPercentileRank] = useState<number | null>(null)
   const [currentTier, setCurrentTier] = useState(TIERS[0])
   const [prevTier, setPrevTier] = useState(TIERS[0])
-  const [roundCounter, setRoundCounter] = useState(0)
+  const [roundCounter, setRoundCounter] = useState(0) // Start at 0, set to 1 on init
   const [leaderboard, setLeaderboard] = useState<{ name: string; score: number }[]>([])
-  const [freezeTimeUsed, setFreezeTimeUsed] = useState(false)
+  const [freezeTimeUsed, setFreezeTimeUsed] = useState(false) // Freeze used in the current round
   const [isTimeFrozen, setIsTimeFrozen] = useState(false)
   const [showFreezeAnimation, setShowFreezeAnimation] = useState(false)
-  const [isGeneratingNewWord, setIsGeneratingNewWord] = useState(false)
-  const [riddle, setRiddle] = useState("")
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Initialize game
+  // *** STATE TO TRACK USED WORDS IN THIS SESSION ***
+  const [sessionUsedWords, setSessionUsedWords] = useState<string[]>([]);
+
+  // Initialize game state on mount
   useEffect(() => {
     async function initializeGame() {
+      console.log("Initializing game...");
+      setIsLoading(true);
       try {
-        // Get player name from cookie
-        const name = getCookie("playerName")
-        const userr = getCookie("userId")
-        
+        const name = getCookie("playerName");
+        const userr = getCookie("userId");
+
         if (!name) {
-          router.push("/")
-          return
+          router.push("/"); // Redirect if no player name
+          return;
         }
 
-        setPlayerName(name)
-        setPlayeruserid(userr ?? "")
-        console.log(name)
-        console.log(userr)
-        // Get player stats from Redis
-        // const response = await fetch(`/api/player-stats?name=${encodeURIComponent(userr??"")}`)
+        setPlayerName(name);
+        setPlayeruserid(userr ?? "");
+        console.log("Player Name:", name, "User ID:", userr);
+
+        // Reset session-specific states
+        setScore(0);
+        setConsecutiveCorrect(0);
+        setSessionUsedWords([]); // Clear used words for the new session
+        setCurrentTier(TIERS[0]); // Reset tier based on score 0
+        setPrevTier(TIERS[0]);
+        // Optionally fetch persistent stats like base difficulty, but start game state fresh
+        // const response = await fetch(`/api/player-stats?userId=${encodeURIComponent(userr ?? "")}`); // Use userId
         // if (response.ok) {
-        //   const stats = await response.json()
-          
-        //   // Set initial game state from Redis data
-        //   if (stats.difficulty) setDifficulty(stats.difficulty)
-        //   if (stats.score) setScore(Number.parseInt(stats.score))
-        //   if (stats.consecutiveCorrect) setConsecutiveCorrect(Number.parseInt(stats.consecutiveCorrect))
+        //   const stats = await response.json();
+        //   if (stats.difficulty) setDifficulty(stats.difficulty); // Set base difficulty
+           // Avoid setting score/consecutiveCorrect from old stats here
         // }
 
-        setRoundCounter(1)
-        setIsInitialized(true)
+        setRoundCounter(1); // Signal start of the first round
+        setIsInitialized(true);
+        // Fetching word will happen in the effect watching roundCounter & isInitialized
       } catch (error) {
-        console.error("Error initializing game:", error)
+        console.error("Error initializing game:", error);
         toast({
           title: "Error",
           description: "Failed to initialize game. Please try again.",
           variant: "destructive",
-        })
+        });
+        setIsLoading(false);
       }
+      // Loading state will be turned off in fetchNewWord's finally block
     }
 
-    initializeGame()
-  }, [router])
+    initializeGame();
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]); // Run only once on mount
 
   // Timer effect
   useEffect(() => {
-    if (!isLoading && isInitialized) {
+    if (!isLoading && isInitialized && gameState === "playing") {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
-          // Don't decrease time if it's frozen or the game isn't playing
-          if (isTimeFrozen || gameState !== "playing") return prev
+          if (isTimeFrozen) return prev; // Don't decrease if frozen
 
           if (prev <= 1) {
-            clearInterval(timer)
-            if (gameState === "playing") {
-              setGameState("lost")
-            }
-            return 0
+            clearInterval(timer);
+            setGameState("lost"); // Game lost when time runs out
+            return 0;
           }
+          return prev - 1;
+        });
+      }, 1000);
 
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => clearInterval(timer)
+      return () => clearInterval(timer); // Cleanup interval
     }
-  }, [gameState, isTimeFrozen, isLoading, isInitialized])
+  }, [gameState, isTimeFrozen, isLoading, isInitialized]);
 
-  // Fetch new word when round counter changes
+  // Fetch new word when round counter changes and game is initialized
   useEffect(() => {
-    if (roundCounter > 0 && !isGeneratingNewWord && isInitialized) {
-      fetchNewWord()
+    if (isInitialized && roundCounter > 0 && !isGeneratingNewWord) {
+      console.log(`Triggering fetch for round ${roundCounter}`);
+      fetchNewWord();
     }
-  }, [roundCounter, isInitialized])
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundCounter, isInitialized]); // Dependencies trigger fetch
 
-  // Load leaderboard data
+  // Load leaderboard data on initialization
   useEffect(() => {
     if (isInitialized) {
-      loadLeaderboard()
+      loadLeaderboard();
     }
-  }, [isInitialized])
+  }, [isInitialized]);
 
-  // Update current tier based on score
+  // Update current tier based on score changes
   useEffect(() => {
-    updateTier()
-  }, [score])
-
-  // Get a new clue every 15 seconds if still playing
-  useEffect(() => {
-    if (gameState !== "playing") return
-
-    const clueIntervals = [10, 20, 30, 40, 50] // Start showing clues after 10 seconds
-    const currentTime = 60 - timeLeft
-    const cluesToShow = clueIntervals.filter((interval) => currentTime >= interval).length
-
-    if (cluesToShow > clues.length && cluesToShow <= allClues.length) {
-      displayNextClue()
+    if(isInitialized) { // Only update tier after initialization
+       updateTier();
     }
-  }, [timeLeft, gameState, clues, allClues])
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score, isInitialized]);
 
-  // Focus input when game state changes
+  // Reveal clues based on time elapsed
   useEffect(() => {
-    if (gameState === "playing" && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [gameState, clues])
+    if (gameState !== "playing" || allClues.length === 0) return;
 
-  // Hide wrong guess message after 2 seconds
+    const clueIntervals = [10, 20, 30, 40, 50]; // Time in seconds *elapsed* (60 - timeLeft)
+    const currentTimeElapsed = 60 - timeLeft;
+
+    // Find how many clues should be visible
+    const targetClueCount = clueIntervals.filter((interval) => currentTimeElapsed >= interval).length;
+
+    // If more clues should be visible than currently are, update
+    if (targetClueCount > clues.length && targetClueCount <= allClues.length) {
+       setClues(allClues.slice(0, targetClueCount));
+    }
+
+  }, [timeLeft, gameState, clues.length, allClues]);
+
+  // Focus input when it's time to play
+  useEffect(() => {
+    if (gameState === "playing" && !isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [gameState, isLoading, clues]); // Refocus when clues update too
+
+  // Hide wrong guess message after a delay
   useEffect(() => {
     if (showWrongGuess) {
       const timer = setTimeout(() => {
-        setShowWrongGuess(false)
-      }, 2000)
-
-      return () => clearTimeout(timer)
+        setShowWrongGuess(false);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [showWrongGuess])
+  }, [showWrongGuess]);
+
+  // --- Core Game Functions ---
 
   const fetchNewWord = async () => {
-    setIsLoading(true)
-    setIsGeneratingNewWord(true)
+    console.log("Fetching new word. Used words passed:", sessionUsedWords);
+    setIsLoading(true);
+    setIsGeneratingNewWord(true); // Prevent concurrent requests
 
     try {
-      // Reset game state
-      setGuess("")
-      setClues([])
-      setTimeLeft(60)
-      setAttempts(0)
-      setGameState("playing")
-      setShowConfetti(false)
-      setWrongGuess("")
-      setShowWrongGuess(false)
-      setWrongAttempts(0)
+      // Reset round-specific state
+      setGuess("");
+      setClues([]);
+      setAllClues([]);
+      setRiddle("");
+      setTimeLeft(60);
+      setAttempts(0);
+      setWrongAttempts(0);
+      setGameState("playing"); // Ensure playing state
+      setShowConfetti(false);
+      setWrongGuess("");
+      setShowWrongGuess(false);
+      setFreezeTimeUsed(false); // Reset freeze availability for the round
+      setIsTimeFrozen(false); // Ensure time is not frozen at start
 
-      // Determine difficulty based on consecutive correct answers
-      let dynamicDifficulty = difficulty
-      if (consecutiveCorrect >= 10) {
-        dynamicDifficulty = "expert"
-      } else if (consecutiveCorrect >= 6) {
-        dynamicDifficulty = "hard"
-      } else if (consecutiveCorrect >= 3) {
-        dynamicDifficulty = "medium"
-      }
+      // Determine dynamic difficulty
+      let dynamicDifficulty = difficulty; // Start with base difficulty
+      if (consecutiveCorrect >= 10) dynamicDifficulty = "expert";
+      else if (consecutiveCorrect >= 6) dynamicDifficulty = "hard";
+      else if (consecutiveCorrect >= 3) dynamicDifficulty = "medium";
 
-      const { word, clues: generatedClues, riddle: generatedRiddle } = await generateWordAndClues(dynamicDifficulty)
+      // *** CALL SERVER ACTION WITH CURRENT SESSION'S USED WORDS ***
+      const { word, clues: generatedClues, riddle: generatedRiddle } = await generateWordAndClues(
+        dynamicDifficulty,
+        sessionUsedWords // Pass the list
+      );
 
-      // Store the word, all clues, and riddle
-      setCurrentWord(word)
-      setAllClues(generatedClues)
-      setRiddle(generatedRiddle)
+      console.log("Received word:", word);
+      setCurrentWord(word); // word is already lowercase from server
+      setAllClues(generatedClues);
+      setRiddle(generatedRiddle);
+      setClues([]); // Start with no clues displayed initially
 
-      // Start with no clues - they'll appear based on the timer
-      setClues([])
     } catch (error) {
-      console.error("Error starting new round:", error)
+      console.error("Error fetching new word:", error);
       toast({
         title: "Error",
-        description: "Failed to generate a new word. Please try again.",
+        description: "Could not get a new word. Trying again.",
         variant: "destructive",
-      })
+      });
+      // Optional: Implement retry logic or fallback
+      setGameState("lost"); // Or some error state
     } finally {
-      setIsLoading(false)
-      setIsGeneratingNewWord(false)
+      setIsLoading(false); // Done loading the word
+      setIsGeneratingNewWord(false); // Allow new requests
     }
-  }
+  };
 
   const loadLeaderboard = async () => {
     try {
-      const response = await fetch("/api/scores")
+      const response = await fetch("/api/scores"); // Fetch all scores
       if (response.ok) {
-        const data = await response.json()
-
-        // Process leaderboard data
-        const playerMap = new Map<string, number>()
-
+        const data = await response.json();
+        // Process data to get unique top scores per player name
+        const playerMap = new Map<string, number>();
         data.forEach((entry: { name: string; score: string | number }) => {
-          const scoreNum = Number(entry.score)
+          const scoreNum = Number(entry.score);
+          // Store the highest score found for each name
           if (!playerMap.has(entry.name) || scoreNum > playerMap.get(entry.name)!) {
-            playerMap.set(entry.name, scoreNum)
+            playerMap.set(entry.name, scoreNum);
           }
-        })
-
+        });
+        // Convert map to sorted array
         const sortedLeaderboard = Array.from(playerMap.entries())
-          .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-          .map(([name, score]) => ({ name, score }))
-
-        setLeaderboard(sortedLeaderboard)
+          .sort(([, scoreA], [, scoreB]) => scoreB - scoreA) // Sort descending
+          .map(([name, score]) => ({ name, score }));
+        setLeaderboard(sortedLeaderboard);
       } else {
-        console.error("Failed to load leaderboard")
+        console.error("Failed to load leaderboard:", response.statusText);
       }
     } catch (error) {
-      console.error("Error loading leaderboard:", error)
+      console.error("Error loading leaderboard:", error);
     }
-  }
+  };
 
   const updateTier = () => {
     const newTier = TIERS.reduce((highest, tier) => {
-      if (score >= tier.threshold && tier.threshold >= highest.threshold) {
-        return tier
-      }
-      return highest
-    }, TIERS[0])
+      return (score >= tier.threshold && tier.threshold >= highest.threshold) ? tier : highest;
+    }, TIERS[0]);
 
     if (newTier.name !== currentTier.name) {
-      setPrevTier(currentTier)
-      setCurrentTier(newTier)
-
-      if (score > 0 && roundCounter > 1) {
-        setShowTierUp(true)
+      console.log(`Tier Up! ${currentTier.name} -> ${newTier.name}`);
+      setPrevTier(currentTier);
+      setCurrentTier(newTier);
+      // Only show animation/toast if it's not the initial load (score > 0)
+      if (score > 0) {
+        setShowTierUp(true);
         toast({
           title: "Tier Up!",
           description: `You've reached ${newTier.name} tier!`,
           variant: "default",
-        })
-
-        setTimeout(() => setShowTierUp(false), 4000)
+        });
+        setTimeout(() => setShowTierUp(false), 4000); // Animation duration
       }
     }
-  }
+  };
 
+  // Increments round counter, resets round-specific things
   function startNewRound() {
-    setClues([])
-    setAllClues([])
-    setRiddle("")
-    setRoundCounter((prev) => prev + 1)
-    setFreezeTimeUsed(false)
-    setIsTimeFrozen(false)
+     console.log("Starting new round...");
+     setRoundCounter((prev) => prev + 1); // This triggers useEffect to fetch word
+     // Reset things specific to a round, but not overall progress (score, streak, sessionUsedWords)
+     setFreezeTimeUsed(false);
+     setIsTimeFrozen(false);
+     // Fetching and resetting game state (like clues, time) happens in fetchNewWord
   }
 
-  function displayNextClue() {
-    if (clues.length < allClues.length) {
-      setClues((prev) => [...prev, allClues[prev.length]])
-    }
-  }
-
+  // Handles the submission of a guess
   async function handleSubmitGuess() {
-    if (!guess.trim()) return
+    if (!guess.trim() || gameState !== "playing" || isGeneratingNewWord) return;
 
-    setAttempts((prev) => prev + 1)
+    setAttempts((prev) => prev + 1);
+    const guessedWordLower = guess.trim().toLowerCase();
+    const currentWordLower = currentWord.toLowerCase(); // Ensure comparison is case-insensitive
 
-    if (guess.toLowerCase() === currentWord.toLowerCase()) {
-      const timeBonus = Math.floor(timeLeft / 5)
-      const difficultyBonus = getDifficultyBonus()
-      const cluesPenalty = clues.length * 15
-      const attemptsPenalty = wrongAttempts * 10
-      const streakBonus = Math.min(consecutiveCorrect * 5, 50)
-      const newPoints = 100 + timeBonus + difficultyBonus + streakBonus - cluesPenalty - attemptsPenalty
-      const pointsToAdd = Math.max(10, newPoints)
+    if (guessedWordLower === currentWordLower) {
+      // --- Correct Guess Logic ---
+      const timeBonus = Math.floor(timeLeft / 5);
+      const difficultyBonus = getDifficultyBonus();
+      const cluesPenalty = clues.length * 15; // Penalty for revealed clues
+      const attemptsPenalty = wrongAttempts * 10; // Penalty for wrong attempts in this round
+      const streakBonus = Math.min(consecutiveCorrect * 5, 50); // Capped streak bonus
+      const basePoints = 100;
+      const pointsToAdd = Math.max(10, basePoints + timeBonus + difficultyBonus + streakBonus - cluesPenalty - attemptsPenalty);
 
-      const newScore = score + pointsToAdd
-      setScore(newScore)
-      setGameState("won")
-      setShowConfetti(true)
-      setConsecutiveCorrect((prev) => prev + 1)
+      const newScore = score + pointsToAdd;
+      console.log(`Correct! Word: ${currentWord}. Points: ${pointsToAdd}. New Score: ${newScore}`);
+
+      // *** ADD WORD TO SESSION LIST ***
+      setSessionUsedWords(prev => [...prev, currentWordLower]);
+
+      // Update State
+      setScore(newScore);
+      setGameState("won");
+      setShowConfetti(true);
+      setConsecutiveCorrect((prev) => prev + 1);
 
       toast({
         title: "Correct!",
         description: `You earned ${pointsToAdd} points!`,
         variant: "default",
-      })
+      });
 
-      await saveScore(pointsToAdd)
-      checkLeaderboardRanking(newScore)
-      calculatePercentileRank(newScore)
+      // Async Operations (save score, update stats, check rank)
+      try {
+         await saveScore(newScore); // Pass the *new total score* for saving context
+         checkLeaderboardRanking(newScore);
+         calculatePercentileRank(newScore);
+         await updatePlayerStats(newScore); // Update persistent stats
+      } catch (error) {
+         console.error("Error during post-guess updates:", error);
+         // Decide how to handle this - maybe notify user?
+      }
 
-      // Save player stats to Redis
-      await updatePlayerStats(newScore)
     } else {
-      setWrongGuess(guess)
-      setShowWrongGuess(true)
-      setWrongAttempts((prev) => prev + 1)
+      // --- Incorrect Guess Logic ---
+      console.log(`Incorrect guess: ${guess}`);
+      setWrongGuess(guess);
+      setShowWrongGuess(true);
+      setWrongAttempts((prev) => prev + 1);
+      setConsecutiveCorrect(0); // Reset streak on wrong guess
 
       toast({
         title: "Not quite right",
         description: "Try again with the clues!",
         variant: "destructive",
-      })
+      });
     }
 
-    setGuess("")
+    setGuess(""); // Clear input after guess processing
   }
 
   function getDifficultyBonus() {
-    // Dynamic difficulty based on consecutive correct answers
-    const effectiveDifficulty =
-      consecutiveCorrect >= 10
-        ? "expert"
-        : consecutiveCorrect >= 6
-          ? "hard"
-          : consecutiveCorrect >= 3
-            ? "medium"
-            : difficulty
-
-    switch (effectiveDifficulty) {
-      case "easy":
-        return 0
-      case "medium":
-        return 30
-      case "hard":
-        return 60
-      case "expert":
-        return 100
-      default:
-        return 0
+    const effectiveDifficulty = getEffectiveDifficulty(); // Get current dynamic difficulty label
+    switch (effectiveDifficulty.toLowerCase()) {
+      case "easy": return 0;
+      case "medium": return 30;
+      case "hard": return 60;
+      case "expert": return 100;
+      default: return 0;
     }
   }
 
-  async function saveScore(pointsToAdd: number) {
+  // Saves the score record (likely including context like word, difficulty)
+  async function saveScore(currentTotalScore: number) {
     try {
-      // Determine effective difficulty based on consecutive correct answers
-      const effectiveDifficulty =
-        consecutiveCorrect >= 10
-          ? "expert"
-          : consecutiveCorrect >= 6
-            ? "hard"
-            : consecutiveCorrect >= 3
-              ? "medium"
-              : difficulty
-
-      const newScore = {
+      const effectiveDifficulty = getEffectiveDifficulty();
+      const scoreData = {
         name: playerName,
-        score: score + pointsToAdd,
+        userId: playeruserid, // Include userId
+        score: currentTotalScore, // Save the total score at this point
         word: currentWord,
         date: new Date().toISOString(),
         difficulty: effectiveDifficulty,
-        consecutiveCorrect: consecutiveCorrect + 1,
-      }
+        consecutiveCorrect: consecutiveCorrect + 1, // The streak *after* the correct guess
+      };
 
-      // Save score to Redis
+      console.log("Saving score:", scoreData);
       const response = await fetch("/api/scores", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newScore),
-      })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scoreData),
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to save score")
+        throw new Error(`Failed to save score: ${response.statusText}`);
       }
-
-      // Reload leaderboard
-      loadLeaderboard()
+      console.log("Score saved successfully.");
+      loadLeaderboard(); // Refresh leaderboard after saving
     } catch (error) {
-      console.error("Error saving score:", error)
+      console.error("Error saving score:", error);
+      toast({ title: "Error", description: "Could not save score.", variant: "destructive" });
     }
   }
 
+  // Updates persistent player stats (like total score, last played time)
   async function updatePlayerStats(newTotalScore: number) {
     try {
       const stats = {
-        score: newTotalScore,
-        userId: playeruserid,
-        consecutiveCorrect: consecutiveCorrect + 1,
-        difficulty,
+        score: newTotalScore, // The latest total score
+        // userId: playeruserid, // The API route likely uses the identifier in the body/query
+        consecutiveCorrect: gameState === 'won' ? consecutiveCorrect + 1 : 0, // Reflect current streak state
+        difficulty: difficulty, // Base difficulty setting
         lastWord: currentWord,
         lastPlayed: new Date().toISOString(),
-        tier: currentTier.name,
-      }
-      // Store in Redis without expiration for permanent persistence
+        tier: currentTier.name, // Current tier achieved
+      };
+      console.log("Updating player stats for:", playeruserid, "with:", stats);
       await fetch("/api/player-stats", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          playeruserid,
-          stats,
+          playeruserid: playeruserid, // Changed key to match expected backend? Adjust if needed
+          stats: stats,
         }),
-      })
+      });
+      console.log("Player stats updated.");
     } catch (error) {
-      console.error("Error updating player stats:", error)
+      console.error("Error updating player stats:", error);
+       toast({ title: "Error", description: "Could not update player stats.", variant: "destructive" });
     }
   }
 
+  // Checks if the new score surpasses anyone in the top ranks
   function checkLeaderboardRanking(newTotalScore: number) {
-    // Group by player name and find highest score for each player
-    const playerMap = new Map()
-    leaderboard.forEach((entry) => {
-      if (entry.name !== playerName) {
-        playerMap.set(entry.name, { name: entry.name, score: entry.score })
-      }
-    })
+    const otherPlayers = leaderboard.filter(entry => entry.name !== playerName);
+    const topPlayers = otherPlayers.sort((a, b) => b.score - a.score).slice(0, 3); // Top 3 others
 
-    // Convert to array and sort by score (descending)
-    const topPlayers = Array.from(playerMap.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3) // Get top 3
-
-    // Check if current score beats any top player
     for (const player of topPlayers) {
       if (newTotalScore > player.score) {
-        setBeatenPlayer(player)
-        setShowRankUp(true)
-        setTimeout(() => setShowRankUp(false), 5000)
-        break
+        console.log(`Rank Up! Surpassed ${player.name} (${player.score})`);
+        setBeatenPlayer(player);
+        setShowRankUp(true);
+        setTimeout(() => setShowRankUp(false), 5000);
+        break; // Only show one rank up notification per win
       }
     }
   }
 
+  // Calculates the player's percentile rank
   function calculatePercentileRank(newTotalScore: number) {
     if (leaderboard.length === 0) {
-      setPercentileRank(100) // First player is in the 100th percentile
-      return
+      setPercentileRank(100); // Top percentile if leaderboard is empty
+      return;
     }
-
-    // Count how many scores are lower than current score
-    const lowerScores = leaderboard.filter((entry) => entry.score < newTotalScore).length
-
-    // Calculate percentile (percentage of players with lower scores)
-    const percentile = Math.round((lowerScores / leaderboard.length) * 100)
-    setPercentileRank(percentile)
+    // Ensure we are comparing against unique player scores
+     const uniqueScores = Array.from(new Map(leaderboard.map(p => [p.name, p.score])).values());
+    const lowerScoresCount = uniqueScores.filter(score => score < newTotalScore).length;
+    const percentile = Math.round((lowerScoresCount / uniqueScores.length) * 100);
+    setPercentileRank(percentile);
+    console.log(`Percentile rank: ${percentile}%`);
   }
+
+  // --- UI Helpers ---
 
   function getDifficultyColor() {
-    // Dynamic difficulty based on consecutive correct answers
-    const effectiveDifficulty =
-      consecutiveCorrect >= 10
-        ? "expert"
-        : consecutiveCorrect >= 6
-          ? "hard"
-          : consecutiveCorrect >= 3
-            ? "medium"
-            : difficulty
-
+    const effectiveDifficulty = getEffectiveDifficulty().toLowerCase();
     switch (effectiveDifficulty) {
-      case "easy":
-        return "from-indigo-300 to-purple-300"
-      case "medium":
-        return "from-blue-300 to-cyan-300"
-      case "hard":
-        return "from-emerald-300 to-teal-300"
-      case "expert":
-        return "from-amber-300 to-yellow-300"
-      default:
-        return "from-violet-300 to-fuchsia-300"
+      case "easy": return "from-indigo-300 to-purple-300";
+      case "medium": return "from-blue-300 to-cyan-300";
+      case "hard": return "from-emerald-300 to-teal-300";
+      case "expert": return "from-amber-300 to-yellow-300";
+      default: return "from-violet-300 to-fuchsia-300";
     }
   }
 
-  // Get effective difficulty label
   function getEffectiveDifficulty() {
-    if (consecutiveCorrect >= 10) return "Expert"
-    if (consecutiveCorrect >= 6) return "Hard"
-    if (consecutiveCorrect >= 3) return "Medium"
-    return difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+    if (consecutiveCorrect >= 10) return "Expert";
+    if (consecutiveCorrect >= 6) return "Hard";
+    if (consecutiveCorrect >= 3) return "Medium";
+    return difficulty.charAt(0).toUpperCase() + difficulty.slice(1); // Base difficulty
   }
 
-  // Handle freezing the timer
   function handleFreezeTime() {
-    if (!freezeTimeUsed && gameState === "playing") {
-      setFreezeTimeUsed(true)
-      setIsTimeFrozen(true)
-      setShowFreezeAnimation(true)
+    if (!freezeTimeUsed && gameState === "playing" && !isTimeFrozen) {
+      console.log("Freezing time!");
+      setFreezeTimeUsed(true); // Mark as used for this round
+      setIsTimeFrozen(true);
+      setShowFreezeAnimation(true);
 
-      // Show animation for 2 seconds
+      setTimeout(() => setShowFreezeAnimation(false), 2000); // Animation duration
       setTimeout(() => {
-        setShowFreezeAnimation(false)
-      }, 2000)
-
-      // Keep time frozen for 10 seconds
-      setTimeout(() => {
-        setIsTimeFrozen(false)
-      }, 10000)
+        console.log("Unfreezing time.");
+        setIsTimeFrozen(false);
+      }, 10000); // Freeze duration
 
       toast({
         title: "Time Frozen!",
-        description: "You've frozen time for 10 seconds!",
+        description: "You have 10 seconds of frozen time!",
         variant: "default",
-      })
+      });
     }
+  }
+
+  // Resets the entire game session back to the beginning state
+  async function resetGameSession() {
+    console.log("Resetting entire game session...");
+    setIsLoading(true); // Show loading indicator
+
+    // Reset all progress
+    setScore(0);
+    setConsecutiveCorrect(0);
+    setWrongAttempts(0); // Reset round attempts too
+    setAttempts(0);
+    setSessionUsedWords([]); // *** Clear used words list ***
+    setCurrentTier(TIERS[0]); // Reset tier
+    setPrevTier(TIERS[0]);
+    setPercentileRank(null); // Clear percentile
+    setBeatenPlayer(null); // Clear beaten player
+
+    // Reset current round state thoroughly
+    setCurrentWord("");
+    setClues([]);
+    setAllClues([]);
+    setRiddle("");
+    setGuess("");
+    setTimeLeft(60);
+    setGameState("playing"); // Set back to playing
+    setShowConfetti(false);
+    setWrongGuess("");
+    setShowWrongGuess(false);
+    setFreezeTimeUsed(false);
+    setIsTimeFrozen(false);
+
+    // Update backend stats to reflect reset (optional, confirm desired behavior)
+    try {
+       await updatePlayerStats(0); // Update persistent score to 0
+    } catch (error) {
+       console.error("Failed to reset player stats on backend during full reset:", error);
+    }
+
+    // Set round counter to 1 to trigger fetching the first word via useEffect
+    setRoundCounter(1);
+
+    // Let the useEffect handle the fetch, isLoading will be set to false there
+    // setIsLoading(false); // Let fetchNewWord handle this
   }
 
   // Component to display the riddle
   const RiddleDisplay = () => (
-    <div className="bg-violet-200 p-4 rounded-md">
-      <h4 className="font-semibold text-violet-800 mb-2">Riddle:</h4>
-      <p className="text-sm text-slate-800 italic">{riddle || "Thinking of a riddle..."}</p>
+    <div className="bg-violet-100 p-4 rounded-lg shadow-inner">
+      <h4 className="font-semibold text-violet-800 mb-2 text-center text-lg">Riddle</h4>
+      <p className="text-sm text-slate-700 italic text-center">{riddle || "Generating a puzzling riddle..."}</p>
     </div>
-  )
+  );
 
-  async function resetGameSession() {
-    // Reset all game progression states
-    setConsecutiveCorrect(0)
-    setWrongAttempts(0)
-    setRoundCounter(1)
-    setScore(0)
-    // Reset other states
-    setClues([])
-    setAllClues([])
-    setRiddle("")
-    setFreezeTimeUsed(false)
-    setIsTimeFrozen(false)
-
-    // Update player stats in Redis
-    await updatePlayerStats(0)
-
-    // Fetch a new word to start the session fresh
-    fetchNewWord()
-  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-b from-wizard-muted/30 to-white relative overflow-hidden">
