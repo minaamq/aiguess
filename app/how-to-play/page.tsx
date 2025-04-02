@@ -191,19 +191,6 @@ export default function HowToPlayPage() {
             </CardContent>
           </Card>
         </motion.div>
-
-        <motion.div
-          className="flex justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
-          <Link href="/game">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button className="bg-[#8B5CF6] hover:bg-[#7C3AED]">Start Playing</Button>
-            </motion.div>
-          </Link>
-        </motion.div>
       </motion.div>
     </main>
   )

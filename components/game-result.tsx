@@ -1,199 +1,237 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
-import { Trophy, Frown, Star, Award } from 'lucide-react';
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import Confetti from "@/components/confetti";
+import confetti from "canvas-confetti";
+import { Trophy, ChevronUp, XCircle, Brain } from "lucide-react";
 
 interface GameResultProps {
-  gameState: "won" | "lost";
+  gameState: "playing" | "won" | "lost";
   word: string;
   score: number;
   attempts: number;
-  showConfetti?: boolean;
+  showConfetti: boolean;
   playerName: string;
   difficulty: string;
+  streak: number;
+  percentileRank: number | null;
+  tier: string;
 }
 
-export default function GameResult({ 
-  gameState, 
-  word, 
-  score, 
-  attempts, 
-  showConfetti = false,
+export default function GameResult({
+  gameState,
+  word,
+  score,
+  attempts,
+  showConfetti,
   playerName,
-  difficulty
+  difficulty,
+  streak,
+  percentileRank,
+  tier,
 }: GameResultProps) {
-  
-  const getDifficultyColor = () => {
-    switch(difficulty) {
-      case "easy": return "from-[#FF9A9E] to-[#FECFEF]";
-      case "medium": return "from-[#A1C4FD] to-[#C2E9FB]";
-      case "hard": return "from-[#84FAB0] to-[#8FD3F4]";
-      case "expert": return "from-[#D4FC79] to-[#96E6A1]";
-      default: return "from-[#8B5CF6] to-[#0EA5E9]";
-    }
-  };
-  
-  return (
-    <motion.div 
-      className="flex flex-col items-center space-y-4 py-4"
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-    >
-      {showConfetti && <Confetti />}
-      
-      {gameState === "won" ? (
-        <>
-        <motion.div
-  className={`h-24 w-24 rounded-full bg-gradient-to-br ${getDifficultyColor()} flex items-center justify-center`}
-  initial={{ scale: 0 }}
-  animate={{ scale: 1, rotate: [0, 10, 0] }}
-  transition={{ 
-    scale: { type: "spring", stiffness: 200, damping: 10, delay: 0.2 },
-    rotate: { type: "tween", duration: 0.5, delay: 0.2 }
-  }}
->
-  <motion.div
-    animate={{ 
-      y: -5,
-      scale: 1.2
-    }}
-    initial={{ y: 0, scale: 1 }}
-    transition={{ 
-      type: "tween",
-      duration: 1,
-      repeat: Infinity,
-      repeatType: "reverse",
-      ease: "easeInOut"
-    }}
-  >
-    <Trophy className="h-12 w-12 text-white drop-shadow-md" />
-  </motion.div>
-</motion.div>
+  const [pointAnimation, setPointAnimation] = useState(false);
 
+  // Launch confetti effect when player wins
+  useEffect(() => {
+    if (showConfetti && gameState === "won") {
+      const duration = 3 * 1000;
+      const end = Date.now() + duration;
+
+      const colors = ["#8B5CF6", "#0EA5E9", "#F472B6"];
+
+      (function frame() {
+        confetti({
+          particleCount: 2,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors,
+        });
+        
+        confetti({
+          particleCount: 2,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors,
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      })();
+
+      // Trigger point animation
+      setPointAnimation(true);
+      setTimeout(() => setPointAnimation(false), 1000);
+    }
+  }, [showConfetti, gameState]);
+
+  return (
+    <div className="text-center space-y-6 py-2">
+      {gameState === "won" ? (
+        <div className="space-y-4">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            className="mx-auto w-20 h-20 rounded-full bg-green-100 flex items-center justify-center"
+          >
+            <Trophy className="h-10 w-10 text-yellow-500" />
+          </motion.div>
+          
+          <motion.h3
+            className="text-2xl font-bold text-green-600"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            Great job, Wizard!
+          </motion.h3>
           
           <motion.div
-            className="flex gap-1"
+            className="text-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            {[...Array(Math.min(attempts, 5))].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.4 + (i * 0.1) }}
-              >
-                <Star className="h-5 w-5 text-yellow-400" />
-              </motion.div>
-            ))}
+            <p>
+              The word was:{" "}
+              <span className="font-bold text-xl wizard-gradient-text">{word}</span>
+            </p>
           </motion.div>
           
-          <motion.h3 
-            className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]"
+          <motion.div
+            className="grid grid-cols-4 "
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            You got it, {playerName}!
+            <div className="bg-wizard-muted/40 p-3 rounded-lg">
+              <div className="text-sm text-slate-500">Attempts</div>
+              <div className="font-bold text-lg text-wizard-primary">{attempts}</div>
+            </div>
+            
+            <div className="bg-wizard-muted/40 p-3 rounded-lg relative overflow-hidden">
+              <div className="text-sm text-slate-500">Score</div>
+              <motion.div
+                className="font-bold text-lg text-wizard-secondary"
+                animate={pointAnimation ? 
+                  { scale: [1, 1.3, 1], color: ["#0EA5E9", "#F472B6", "#0EA5E9"] } : 
+                  {}
+                }
+                transition={{ duration: 0.5 }}
+              >
+                {score}
+              </motion.div>
+              
+              {pointAnimation && (
+                <motion.div
+                  className="absolute -right-1 -top-1 bg-yellow-400 text-xs px-2 py-0.5 rounded-full font-bold text-white"
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0 }}
+                >
+                  +100
+                </motion.div>
+              )}
+            </div>
+            
+            <div className="bg-wizard-muted/40 p-3 rounded-lg">
+              <div className="text-sm text-slate-500">Streak</div>
+              <div className="font-bold text-lg text-wizard-primary flex items-center justify-center">
+                {streak} <ChevronUp className="h-4 w-4 ml-1 text-green-500" />
+              </div>
+            </div>
+            
+            <div className="bg-wizard-muted/40 p-3 rounded-lg">
+              <div className="text-sm text-slate-500">Tier</div>
+              <div className="font-bold text-lg text-wizard-secondary">{tier}</div>
+            </div>
+          </motion.div>
+          
+          {percentileRank !== null && (
+            <motion.div
+              className=" bg-gradient-to-r from-wizard-primary/10 to-wizard-secondary/10 rounded-lg"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <p className="text-sm">
+                You're better than <span className="font-bold text-wizard-primary">{percentileRank}%</span> of all players!
+              </p>
+            </motion.div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            className="mx-auto w-20 h-20 rounded-full bg-red-100 flex items-center justify-center"
+          >
+            <XCircle className="h-10 w-10 text-red-500" />
+          </motion.div>
+          
+          <motion.h3
+            className="text-2xl font-bold text-red-600"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            Time's Up!
           </motion.h3>
           
           <motion.div
-            className="text-center space-y-1"
+            className="text-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.3 }}
           >
-            <p className="text-[#1E40AF]">
-              The word was <span className="font-bold">{word}</span>
+            <p>
+              The word was:{" "}
+              <span className="font-bold text-xl wizard-gradient-text">{word}</span>
             </p>
-            <p className="text-[#1E40AF]">
-              You guessed it in {attempts} {attempts === 1 ? 'try' : 'tries'}
-            </p>
-            <motion.p
-              className="font-bold text-lg text-[#8B5CF6]"
-              animate={{ 
-                scale: [1, 1.1, 1],
-                color: ["#8B5CF6", "#0EA5E9", "#8B5CF6"]
-              }}
-              transition={{ 
-                duration: 2,
-                repeat: 2
-              }}
-            >
-              +{score} points!
-            </motion.p>
+            
           </motion.div>
-        </>
-      ) : (
-        <>
-          <motion.div 
-            className="h-24 w-24 rounded-full bg-gradient-to-br from-red-200 to-red-300 flex items-center justify-center"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 200, 
-              damping: 10 
-            }}
-          >
-            <motion.div
-              animate={{ rotate: 10 }}
-              initial={{ rotate: 0 }}
-              transition={{ 
-                duration: 0.5,
-                delay: 0.5,
-                repeat: 3,
-                repeatType: "mirror",
-                ease: "easeInOut"
-              }}
-            >
-              <Frown className="h-12 w-12 text-red-500" />
-            </motion.div>
-          </motion.div>
-          
-          <motion.h3 
-            className="text-2xl font-bold text-red-500"
+          {percentileRank !== null && (
+              <motion.div
+                className="mt-1 m-20"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+              >
+                <div className="flex flex-col items-center">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 ">
+                    <div 
+                      className="bg-gradient-to-r from-red-400 to-orange-400 h-2.5 rounded-full" 
+                      style={{ width: `${percentileRank}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-[#6B7280]">
+                    You're still better than <span className="font-bold text-red-500">{percentileRank}%</span> of players
+                  </p>
+                </div>
+              </motion.div>
+            )}
+       
+          <motion.div
+            className=" bg-wizard-muted/30 rounded-lg"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            Time's up, {playerName}!
-          </motion.h3>
-          
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-[#1E40AF]"
-          >
-            The word was <span className="font-bold">{word}</span>
-          </motion.p>
-        </>
-      )}
-      
-      <motion.div 
-        className="flex space-x-3 pt-2"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <Link href="/leaderboard">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button 
-              variant="outline" 
-              className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6]/10 flex gap-2 items-center"
-            >
-              <Award className="h-4 w-4" />
-              Leaderboard
-            </Button>
+            
+            <div className="flex items-center justify-center">
+              <Brain className="h-5 w-5 mr-2 text-wizard-primary" />
+              
+              <p className="text-slate-700">Don't worry, try the next word!</p>
+              
+            </div>
+            
           </motion.div>
-        </Link>
-      </motion.div>
-    </motion.div>
+        </div>
+      )}
+    </div>
   );
 }

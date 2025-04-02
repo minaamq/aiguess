@@ -1,70 +1,120 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Lightbulb } from "lucide-react";
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Lightbulb, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface GameClueProps {
-  clue: string;
-  index: number;
+  clues: string[];
+  isLoading: boolean;
 }
 
-export default function GameClue({ clue, index }: GameClueProps) {
-  // Different background colors for each clue level
-  const bgColors = [
-    "bg-gradient-to-r from-[#FFD1D1] to-[#FFE2F0] border-[#FF9A9E]/20",
-    "bg-gradient-to-r from-[#BDE0FE] to-[#CDF5F6] border-[#A1C4FD]/20",
-    "bg-gradient-to-r from-[#C1FBA4] to-[#D7F8FF] border-[#84FAB0]/20",
-  ];
+export default function GameClue({ clues, isLoading }: GameClueProps) {
+  // Instead of an array of clues, we maintain a single string for the displayed text.
+  const [displayedClue, setDisplayedClue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // When new clues are added, compute the full combined text.
+  // If it differs from what's already displayed, start the typing effect.
+  useEffect(() => {
+    if (clues.length > 0) {
+      const fullText = clues.join(" ");
+      if (displayedClue !== fullText) {
+        setIsTyping(true);
+      }
+    }
+  }, [clues, displayedClue]);
+
+  // Animate typing effect: append one character at a time until the full text is reached.
+  useEffect(() => {
+    if (isTyping) {
+      const fullText = clues.join(" ");
+      if (displayedClue.length < fullText.length) {
+        const timer = setTimeout(() => {
+          setDisplayedClue(fullText.substring(0, displayedClue.length + 1));
+        }, 25); // Speed of typing
+
+        return () => clearTimeout(timer);
+      } else {
+        setIsTyping(false);
+      }
+    }
+  }, [isTyping, displayedClue, clues]);
+
+  // Scroll to bottom when new text is added
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [displayedClue]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{
-        type: "spring",
-        stiffness: 500,
-        damping: 30,
-        delay: index * 0.1,
-      }}
+    <div
+      ref={containerRef}
+      className="space-y-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#E5DEFF] scrollbar-track-transparent"
     >
-      <Card className={`${bgColors[index]} border overflow-hidden`}>
-        <CardContent className="p-3 flex items-start gap-2">
-          <motion.div
-            animate={{
-              rotate: 15,
-              scale: 1.2,
-            }}
-            initial={{ rotate: 0, scale: 1 }}
-            transition={{
-              duration: 0.8,
-              delay: index * 0.5,
-              repeat: 1,
-              repeatType: "reverse",
-              repeatDelay: 5,
-              ease: "easeInOut",
-            }}
-          >
-            <div className="relative">
-              <Lightbulb className="h-5 w-5 text-[#0EA5E9] mt-0.5 flex-shrink-0" />
-              <motion.div
-                className="absolute -top-1 -right-1 w-2 h-2 bg-[#1A73E8] rounded-full"
-                animate={{
-                  scale: [1, 1.5, 1],
-                  opacity: [0.7, 1, 0.7],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            </div>
-          </motion.div>
-          <p className="text-sm text-[#1E40AF]">{clue}</p>
-        </CardContent>
-      </Card>
-    </motion.div>
+      <AnimatePresence>
+        <motion.div
+          key="clue"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-start gap-2"
+        >
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#8B5CF6]/20 to-[#0EA5E9]/20 flex items-center justify-center mt-1">
+            <Lightbulb className="h-4 w-4 text-[#0EA5E9]" />
+          </div>
+          <div className="flex-1">
+            <Card className="bg-white/80 border border-[#E5DEFF] shadow-sm p-3">
+              <p className="text-[#1E40AF] text-sm leading-relaxed">
+                {displayedClue}
+                {isTyping && (
+                  <motion.span
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 0.8, repeat: Number.POSITIVE_INFINITY }}
+                    className="inline-block ml-0.5 w-1.5 h-4 bg-[#0EA5E9]"
+                  />
+                )}
+              </p>
+            </Card>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {isLoading && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-2"
+        >
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#8B5CF6]/20 to-[#0EA5E9]/20 flex items-center justify-center mt-1">
+            <Sparkles className="h-4 w-4 text-[#0EA5E9]" />
+          </div>
+          <div className="flex-1">
+            <Card className="bg-white/80 border border-[#E5DEFF] shadow-sm p-3">
+              <div className="flex space-x-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.6, repeat: Number.POSITIVE_INFINITY }}
+                  className="w-2 h-2 rounded-full bg-[#8B5CF6]"
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.6, delay: 0.2, repeat: Number.POSITIVE_INFINITY }}
+                  className="w-2 h-2 rounded-full bg-[#0EA5E9]"
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.6, delay: 0.4, repeat: Number.POSITIVE_INFINITY }}
+                  className="w-2 h-2 rounded-full bg-[#8B5CF6]"
+                />
+              </div>
+            </Card>
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }

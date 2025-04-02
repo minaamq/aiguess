@@ -24,6 +24,14 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 265 84% 64%;
     --radius: 0.75rem;
+
+    /* Tier gradients */
+    --bronze-gradient: linear-gradient(to right, #b5651d, #cd7f32);
+    --silver-gradient: linear-gradient(to right, #aaa9ad, #d4d4d8);
+    --gold-gradient: linear-gradient(to right, #ffd700, #ffb700);
+    --platinum-gradient: linear-gradient(to right, #8abcd1, #c5e4f3);
+    --diamond-gradient: linear-gradient(to right, #b9d9eb, #2a85d0);
+    --master-gradient: linear-gradient(to right, #9333ea, #7c3aed);
   }
 
   .dark {
@@ -73,3 +81,41 @@
   animation: fadeIn 0.5s ease-out forwards;
 }
 
+/* Frost effect for freeze time animation */
+.frost-effect {
+  backdrop-filter: blur(8px);
+  background-color: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Magical particle animation */
+@keyframes float {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(10deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+.magical-particle {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Glowing effect for buttons */
+.glow-effect {
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-effect:hover {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+}
+.sticky-input-container {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
