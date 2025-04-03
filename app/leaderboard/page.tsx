@@ -320,7 +320,7 @@ export default function LeaderboardPage() {
                               : "bg-white border border-[#E5DEFF]"
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <motion.div
                             className={`flex items-center justify-center w-8 h-8 rounded-full ${
@@ -338,15 +338,7 @@ export default function LeaderboardPage() {
                           >
                             {getMedal(index)}
                           </motion.div>
-                          <div>
-                            <p className="font-medium text-[#1E40AF]">{player.name}</p>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 text-yellow-500" />
-                              <p className="text-xs text-[#6B7280]">
-                                {player.gamesPlayed} {player.gamesPlayed === 1 ? "game" : "games"}
-                              </p>
-                            </div>
-                          </div>
+                          <p className="font-medium text-[#1E40AF]">{player.name}</p>
                         </div>
                         <div className="flex flex-col items-end">
                           <div className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#0EA5E9]">
@@ -357,10 +349,24 @@ export default function LeaderboardPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-between items-center mt-1 text-xs">
-                        <p className="text-[#6B7280]">
-                          Last word: <span className="font-medium">{player.lastWord}</span>
-                        </p>
+
+                      <div className="flex justify-between items-center mt-2">
+                        {player.consecutiveCorrect && player.consecutiveCorrect > 2 ? (
+                          <motion.div
+                            className="text-xs flex items-center"
+                            animate={{ x: [0, 2, 0] }}
+                            transition={{ repeat: 5, duration: 0.3, delay: index * 0.2 }}
+                          >
+                            <span className="text-[#0EA5E9] flex items-center">
+                              <span className="mr-1">🔥</span>
+                              <ChevronUp className="h-3 w-3 mr-1" />
+                              Best streak: {player.consecutiveCorrect} words
+                            </span>
+                          </motion.div>
+                        ) : (
+                          <div></div>
+                        )}
+                        
                         <motion.div
                           whileHover={{ scale: 1.1 }}
                           className={`px-2 py-1 rounded-full bg-gradient-to-r ${getTierGradient(player.tier)} text-white font-medium text-xs flex items-center gap-1`}
@@ -369,19 +375,6 @@ export default function LeaderboardPage() {
                           {player.tier}
                         </motion.div>
                       </div>
-                      {player.consecutiveCorrect && player.consecutiveCorrect > 2 && (
-                        <motion.div
-                          className="mt-1 text-xs flex items-center"
-                          animate={{ x: [0, 2, 0] }}
-                          transition={{ repeat: 5, duration: 0.3, delay: index * 0.2 }}
-                        >
-                          <span className="text-[#0EA5E9] flex items-center">
-                            <span className="mr-1">🔥</span>
-                            <ChevronUp className="h-3 w-3 mr-1" />
-                            Best streak: {player.consecutiveCorrect} words
-                          </span>
-                        </motion.div>
-                      )}
                     </motion.div>
                   ))}
                 </div>
@@ -414,4 +407,3 @@ export default function LeaderboardPage() {
     </main>
   )
 }
-
