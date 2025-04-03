@@ -64,7 +64,7 @@ export async function generateWordAndClues(
 
     const data = await response.json()
     const { word, clues, riddle } = parseGeminiResponse(data)
-
+    console.log(word)
     // Check for duplicates against the session's used words (case-insensitive)
     if (sessionUsedWords.map((w) => w.toLowerCase()).includes(word.toLowerCase())) {
       console.warn(`Generated word "${word}" is already used in this session. Attempt ${attempt}`)
@@ -112,7 +112,7 @@ function createGeminiPrompt(dynamicDifficulty: string, usedWords: string[] = [])
 
   // If there are already used words, add an instruction to avoid them.
   const avoidInstruction = usedWords.length ? `Do not choose any of the following words: ${usedWords.join(", ")}.` : ""
-
+console.log(avoidInstruction)
   return `
 Generate a word guessing game challenge with the following requirements:
 

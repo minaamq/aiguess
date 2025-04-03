@@ -235,7 +235,6 @@ export default function GamePage() {
         sessionUsedWords // Pass the list
       );
 
-      console.log("Received word:", word);
       setCurrentWord(word); // word is already lowercase from server
       setAllClues(generatedClues);
       setRiddle(generatedRiddle);
@@ -334,7 +333,7 @@ export default function GamePage() {
       const pointsToAdd = Math.max(10, basePoints + timeBonus + difficultyBonus + streakBonus - cluesPenalty - attemptsPenalty);
 
       const newScore = score + pointsToAdd;
-      console.log(`Correct! Word: ${currentWord}. Points: ${pointsToAdd}. New Score: ${newScore}`);
+
 
       // *** ADD WORD TO SESSION LIST ***
       setSessionUsedWords(prev => [...prev, currentWordLower]);
@@ -367,8 +366,7 @@ export default function GamePage() {
       console.log(`Incorrect guess: ${guess}`);
       setWrongGuess(guess);
       setShowWrongGuess(true);
-      setWrongAttempts((prev) => prev + 1);
-      setConsecutiveCorrect(0); // Reset streak on wrong guess
+      setWrongAttempts((prev) => prev + 1);// Reset streak on wrong guess
 
       toast({
         title: "Not quite right",
