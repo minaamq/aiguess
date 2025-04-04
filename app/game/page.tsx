@@ -123,24 +123,29 @@ export default function GamePage() {
   }, [router]); // Run only once on mount
 
   // Timer effect
+  const startTimeRef = useRef<number>(Date.now());
+
   useEffect(() => {
     if (!isLoading && isInitialized && gameState === "playing") {
       const timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (isTimeFrozen) return prev; // Don't decrease if frozen
-
-          if (prev <= 1) {
-            clearInterval(timer);
-            setGameState("lost"); // Game lost when time runs out
-            return 0;
-          }
-          return prev - 1;
-        });
+        if (isTimeFrozen) return;
+  
+        // Calculate elapsed time
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const newTimeLeft = Math.max(60 - elapsed, 0);
+        
+        setTimeLeft(newTimeLeft);
+        
+        if (newTimeLeft === 0) {
+          clearInterval(timer);
+          setGameState("lost");
+        }
       }, 1000);
-
-      return () => clearInterval(timer); // Cleanup interval
+  
+      return () => clearInterval(timer);
     }
   }, [gameState, isTimeFrozen, isLoading, isInitialized]);
+  
 
   // Fetch new word when round counter changes and game is initialized
   useEffect(() => {
