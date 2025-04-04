@@ -24,7 +24,7 @@ export async function generateWordAndClues(
       throw new Error("Gemini API key is not configured")
     }
 
-    const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent"
 
     // Use the sessionUsedWords passed from the client
     const prompt = createGeminiPrompt(dynamicDifficulty, sessionUsedWords) // Pass sessionUsedWords here
@@ -55,7 +55,7 @@ export async function generateWordAndClues(
         generationConfig: settings,
       }),
     })
-
+    
     if (!response.ok) {
       const errorData = await response.json()
       console.error("Gemini API error:", errorData)
@@ -65,6 +65,7 @@ export async function generateWordAndClues(
     const data = await response.json()
     const { word, clues, riddle } = parseGeminiResponse(data)
     console.log(word)
+
     // Check for duplicates against the session's used words (case-insensitive)
     if (sessionUsedWords.map((w) => w.toLowerCase()).includes(word.toLowerCase())) {
       console.warn(`Generated word "${word}" is already used in this session. Attempt ${attempt}`)
@@ -113,22 +114,27 @@ function createGeminiPrompt(dynamicDifficulty: string, usedWords: string[] = [])
   // If there are already used words, add an instruction to avoid them.
   const avoidInstruction = usedWords.length ? `Do not choose any of the following words: ${usedWords.join(", ")}.` : ""
 console.log(avoidInstruction)
+  // Generate a random seed using the current timestamp or a random number
+  const randomSeed = Date.now(); // or use Math.random()
+  const randomnessInstruction = `RandomSeed: ${randomSeed}`;
   return `
 Generate a word guessing game challenge with the following requirements:
 
 1. **Word Selection**: 
    - Choose a single word from one or more of the following categories: General Vocabulary, Nature & Animals, Verbs & Actions, Adjectives & Descriptions, Food & Drink, Objects & Things, Places & Geography, Colors & Numbers, or Emotions & Feelings.
    - The selected word should match the difficulty level: ${vocabularyLevel}. Avoid word sun and also ${avoidInstruction}
+2. **Randomness**: 
+   - Ensure variability by considering this seed: ${randomnessInstruction}
 
-2. **Riddle Creation**:
+3. **Riddle Creation**:
    - Craft an engaging riddle that subtly hints at the chosen word without revealing it directly.
    - Ensure the riddle sparks curiosity and challenges the player’s thinking.
-
-3. **Progressive Clues**:
+   - Also if same api call is made again, word should be random and not match your previous reply
+4. **Progressive Clues**:
    - Generate between 3 to 5 clues that progressively reveal more about the word.
    - Arrange the clues so that they move from a very subtle hint to a nearly revealing description.
 
-4. **Output Format**:
+5. **Output Format**:
    - Format your response as a valid JSON object with the following structure:
 {
   "word": "the chosen word",
