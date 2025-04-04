@@ -122,9 +122,9 @@ Generate a word guessing game challenge with the following requirements:
 
 1. **Word Selection**: 
    - Choose a single word from one or more of the following categories: General Vocabulary, Nature & Animals, Verbs & Actions, Adjectives & Descriptions, Food & Drink, Objects & Things, Places & Geography, Colors & Numbers, or Emotions & Feelings.
-   - The selected word should match the difficulty level: ${vocabularyLevel}. Avoid word  tree, ocean, ephemeral, table, chair, garden, cat, plastic,labyrinth, ubiquitous, quixotic, quagmire, orange, book, sky and also ${avoidInstruction}
+   - The selected word should match the difficulty level: ${vocabularyLevel}. Avoid word  tree, ocean, ephemeral, table, chair, garden, cat, plastic,labyrinth, ubiquitous, quixotic, quagmire, orange, book, sky, happy, sad,smile,run and also ${avoidInstruction}
 2. **Randomness**: 
-   - Ensure variability by considering this seed: ${randomnessInstruction} a
+   - Ensure variability by considering this seed: ${randomnessInstruction} and also give output something other than what you would usually give.
   
 
 3. **Riddle Creation**:
